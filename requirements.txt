@@ -2,7 +2,7 @@ numpy
 scipy
 Pillow
 scikit-image
-tensorflow-gpu
+tensorflow-gpu==1.15
 keras
 matplotlib
 opencv-python
