@@ -13,7 +13,7 @@ from dataset_processing import grasp
 
 DATASET_NAME = 'dataset'
 OUTPUT_DIR = 'data/datasets'
-RAW_DATA_DIR = 'data/cornell'
+RAW_DATA_DIR = '../Cornell'
 OUTPUT_IMG_SIZE = (300, 300)
 RANDOM_ROTATIONS = 10
 RANDOM_ZOOM = True
