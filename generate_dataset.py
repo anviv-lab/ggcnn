@@ -5,7 +5,7 @@ import os
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-from skimage import io
+from skimage import io, transform
 
 from dataset_processing.image import Image, DepthImage
 from dataset_processing import grasp
@@ -13,19 +13,19 @@ from dataset_processing import grasp
 
 DATASET_NAME = 'dataset'
 OUTPUT_DIR = 'data/datasets'
-RAW_DATA_DIR = '../Cornell'
+RAW_DATA_DIR = '../primesense'
 OUTPUT_IMG_SIZE = (300, 300)
-RANDOM_ROTATIONS = 10
+RANDOM_ROTATIONS = 1
 RANDOM_ZOOM = True
 
-TRAIN_SPLIT = 0.8
+TRAIN_SPLIT = 0.0
 # OR specify which images are in the test set.
 TEST_IMAGES = None
 VISUALISE_ONLY = False
 
 # File name patterns for the different file types.  _ % '<image_id>'
-_rgb_pattern = os.path.join(RAW_DATA_DIR, 'pcd%sr.png')
-_pcd_pattern = os.path.join(RAW_DATA_DIR, 'pcd%s.txt')
+_rgb_pattern = os.path.join(RAW_DATA_DIR, 'color_%s.png')
+_pcd_pattern = os.path.join(RAW_DATA_DIR, 'depth_%s.npy')
 _pos_grasp_pattern = os.path.join(RAW_DATA_DIR, 'pcd%scpos.txt')
 _neg_grasp_pattern = os.path.join(RAW_DATA_DIR, 'pcd%scneg.txt')
 
@@ -34,7 +34,7 @@ def get_image_ids():
     # Get all the input files, extract the numbers.
     rgb_images = glob.glob(_rgb_pattern % '*')
     rgb_images.sort()
-    return [r[-9:-5] for r in rgb_images]
+    return [r[-5:-4] for r in rgb_images]
 
 
 if __name__ == '__main__':
@@ -77,20 +77,22 @@ if __name__ == '__main__':
 
         # Load the image
         rgb_img_base = Image(io.imread(_rgb_pattern % img_id))
-        depth_img_base = DepthImage.from_pcd(_pcd_pattern % img_id, (480, 640))
+        depth_arr = np.load(_pcd_pattern % img_id)
+        depth_img_base = DepthImage(depth_arr * 1000.0)
         depth_img_base.inpaint()
 
         # Load Grasps.
-        bounding_boxes_base = grasp.BoundingBoxes.load_from_file(_pos_grasp_pattern % img_id)
-        center = bounding_boxes_base.center
+        # bounding_boxes_base = grasp.BoundingBoxes.load_from_file(_pos_grasp_pattern % img_id)
+        center = [depth_arr.shape[0] // 2, depth_arr.shape[1] // 2]
 
         for i in range(RANDOM_ROTATIONS):
-            angle = np.random.random() * 2 * np.pi - np.pi
+            # angle = np.random.random() * 2 * np.pi - np.pi
+            angle = 0.0
             rgb = rgb_img_base.rotated(angle, center)
             depth = depth_img_base.rotated(angle, center)
 
-            bbs = bounding_boxes_base.copy()
-            bbs.rotate(angle, center)
+            # bbs = bounding_boxes_base.copy()
+            # bbs.rotate(angle, center)
 
             left = max(0, min(center[1] - OUTPUT_IMG_SIZE[1] // 2, rgb.shape[1] - OUTPUT_IMG_SIZE[1]))
             right = min(rgb.shape[1], left + OUTPUT_IMG_SIZE[1])
@@ -100,17 +102,21 @@ if __name__ == '__main__':
 
             rgb.crop((top, left), (bottom, right))
             depth.crop((top, left), (bottom, right))
-            bbs.offset((-top, -left))
+            # bbs.offset((-top, -left))
 
             if RANDOM_ZOOM:
-                zoom_factor = np.random.uniform(0.4, 1.0)
+                # zoom_factor = np.random.uniform(0.4, 1.0)
+                zoom_factor = 1.0
                 rgb.zoom(zoom_factor)
                 depth.zoom(zoom_factor)
-                bbs.zoom(zoom_factor, (OUTPUT_IMG_SIZE[0]//2, OUTPUT_IMG_SIZE[1]//2))
+                # bbs.zoom(zoom_factor, (OUTPUT_IMG_SIZE[0]//2, OUTPUT_IMG_SIZE[1]//2))
 
-            depth.normalise()
+            # depth.normalise()
 
-            pos_img, ang_img, width_img = bbs.draw(depth.shape)
+            # depth.img = transform.resize(depth.img, OUTPUT_IMG_SIZE)
+            # rgb.img = transform.resize(rgb.img, OUTPUT_IMG_SIZE)
+
+            # pos_img, ang_img, width_img = bbs.draw(depth.shape)
 
             if VISUALISE_ONLY:
                 f = plt.figure()
@@ -136,10 +142,10 @@ if __name__ == '__main__':
             ds['img_id'].append(int(img_id))
             ds['rgb'].append(rgb.img)
             ds['depth_inpainted'].append(depth.img)
-            ds['bounding_boxes'].append(bbs.to_array(pad_to=25))
-            ds['grasp_points_img'].append(pos_img)
-            ds['angle_img'].append(ang_img)
-            ds['grasp_width'].append(width_img)
+            # ds['bounding_boxes'].append(bbs.to_array(pad_to=25))
+            # ds['grasp_points_img'].append(pos_img)
+            # ds['angle_img'].append(ang_img)
+            # ds['grasp_width'].append(width_img)
 
     # Save the output.
     if not VISUALISE_ONLY:
